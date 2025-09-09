@@ -2,7 +2,6 @@ const express = require('express');
 const userRoutes = express.Router();
 const userController = require('../controller/userController');
 
-
 userRoutes.post('/register',userController.registerUser);
 
 userRoutes.get('/', (req, res) => {
@@ -21,12 +20,7 @@ userRoutes.get('/', (req, res) => {
     `);
 });
 
-userRoutes.post('/login', (req, res) => {
-
-
-  return res.send("Chegou no post do servidor")
-
-})
+userRoutes.post('/login', userController.login);
 
 userRoutes.delete('/delete',userController.deleteUser);
 

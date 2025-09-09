@@ -2,61 +2,83 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const User = sequelize.define('User', {
-    name: {
-        type: DataTypes.STRING,
-        allowNull: false
-    },
     id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true
+    },
+    name: {
+        type: DataTypes.STRING,
+        allowNull: false,
+        validate: {
+            notEmpty: true,
+            len: [2, 100]
+        }
     },
     email: {
         type: DataTypes.STRING,
         allowNull: false,
         unique: true,
         validate: {
-            isEmail: true
+            isEmail: true,
+            notEmpty: true
         }
     },
     password: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        validate: {
+            notEmpty: true,
+            len: [6, 255] // Mínimo de 6 caracteres para senha
+        }
     },
     endereco: {
         type: DataTypes.STRING,
-        allowNull: false
+        allowNull: false,
+        validate: {
+            notEmpty: true
+        }
     },
     telefone: {
         type: DataTypes.STRING,
-        allowNull: true
+        allowNull: true,
+        validate: {
+            is: /^\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}$/ // Validação básica de telefone
+        }
     },
     cpf: {
         type: DataTypes.STRING(14),
         allowNull: false,
         unique: true,
         validate: {
-            len: [14, 14] 
+            len: [11, 14], // Permite com ou sem formatação
+            isCPF(value) {
+                // Validação básica de CPF
+                if (!value) return;
+                const cleanCPF = value.replace(/\D/g, '');
+                if (cleanCPF.length !== 11) {
+                    throw new Error('CPF deve ter 11 dígitos');
+                }
+            }
         }
     }
 }, {
     timestamps: true,
-    tableName: 'users' // Opcional: define um nome explícito para a tabela
-});
-
-// Sincronização melhorada (normalmente feito em um arquivo separado)
-async function syncModel() {
-    try {
-        // Use force: true apenas em desenvolvimento para recriar a tabela
-        // await User.sync({ force: true });
-        await User.sync({ alter: true }); // Alteração segura da estrutura
-        console.log('Tabela User sincronizada com sucesso!');
-    } catch (error) {
-        console.error('Erro ao sincronizar tabela User:', error);
+    tableName: 'users', // Nome mais convencional para tabelas
+    hooks: {
+        beforeValidate: (user) => {
+            // Limpa formatação do CPF antes de validar
+            if (user.cpf) {
+                user.cpf = user.cpf.replace(/\D/g, '');
+            }
+        },
+        afterValidate: (user) => {
+            // Formata CPF após validação (opcional)
+            if (user.cpf && user.cpf.length === 14) {
+                user.cpf = user.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+            }
+        }
     }
-}
-
-// Chame a função de sincronização (opcional)
-// syncModel();
+});
 
 module.exports = User;

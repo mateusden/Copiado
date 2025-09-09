@@ -1,4 +1,8 @@
 const userService = require("../service/userService");
+const bcrypt = require("bcrypt");
+const Sessao = require("../models/Sessao");
+const moment = require('moment-timezone');
+const jwt = require('jsonwebtoken');
 
 const createUser = async (req, res) => {
 
@@ -25,6 +29,8 @@ const registerUser = async (req, res) => {
                 
             } 
             else{
+                var hash = await bcrypt.hash(req.body.password, 10);
+                req.body.password = hash;
                 const newuser = await userService.registerUser(req.body);
                  res.status(200).json(newuser);
             }
@@ -33,14 +39,32 @@ const registerUser = async (req, res) => {
       res.status(400).json({ error: error.message });
     }
   };
- const login = async (req, res) => {
-    try {
-      const user = await userService.login(req.body);
-      res.status(200).json(user);
-    } catch (error) {
-      res.status(400).json({ error: error.message });
+const login = async (req, res) => {
+   try {
+        const { email, password } = req.body;
+
+        const user = await userService.login(email);
+
+        await Sessao.update(
+          { invalido: true }, 
+          { where: { usuarioid: user.id, invalido: false } }
+        );
+
+        if(bcrypt.compareSync(password, user.password)){
+      user.senha = null;
+      const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET, { expiresIn: '1h' });
+      const expiracao = moment().tz('America/Sao_Paulo').add(1, 'hour').toDate();
+      await Sessao.create({ usuarioid: user.id, token, expiracao, invalido: false });
+      return res.status(200).json({ user, token });
     }
- } 
+    else{
+      return res.status(401).json({ error: 'Senha incorreta' });
+    }
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(401).json({ error: error.message });
+    }
+}
  const logout = async (req, res) => {
     try {
       const user = await userService.logout(req.body);
